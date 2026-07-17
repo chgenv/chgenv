@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>대기환경 자가측정 자동화 시스템</title>
+    <!-- Pretendard Font -->
+    <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css" />
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <!-- 보안 인증 화면 -->
+    <div id="login-screen" class="app-container" style="display: flex; flex-direction: column; justify-content: center; min-height: 80vh;">
+        <div class="card" style="text-align: center; padding: 40px 20px;">
+            <div style="font-size: 3rem; color: var(--primary); margin-bottom: 20px;">
+                <i class="fa-solid fa-shield-halved"></i>
+            </div>
+            <h2 style="margin-bottom: 10px; font-weight: 800;">충남환경/이엔피코리아<br>보안 인증</h2>
+            <p style="color: var(--text-muted); margin-bottom: 30px;">직원 전용 측정 시스템입니다.<br>이름을 선택하고 고유 보안코드를 입력해주세요.</p>
+            
+            <div class="form-group" style="margin-bottom: 15px;">
+                <select id="auth-name" style="text-align: center; font-size: 1.1rem; padding: 12px; background-color: rgba(15, 23, 42, 0.4);">
+                    <option value="" disabled selected>직원 이름 선택</option>
+                    <option value="정명원">정명원</option>
+                    <option value="최선홍">최선홍</option>
+                    <option value="채진석">채진석</option>
+                    <option value="안우정">안우정</option>
+                    <option value="관리자" style="font-weight: bold; color: var(--primary);">관리자</option>
+                </select>
+            </div>
+
+            <div class="form-group" style="margin-bottom: 20px;">
+                <input type="password" id="auth-code" placeholder="보안코드 입력" style="text-align: center; letter-spacing: 5px; font-size: 1.2rem; padding: 12px;">
+            </div>
+            
+            <button id="auth-btn" class="btn primary-btn" style="margin-bottom: 15px;">
+                <i class="fa-solid fa-lock-open"></i> 인증하기
+            </button>
+            
+            <p id="auth-msg" class="hidden" style="color: #ef4444; font-size: 0.9rem; font-weight: 600;"></p>
+        </div>
+    </div>
+
+    <!-- 관리자 설정 패널 (초기 숨김) -->
+    <div id="admin-panel" class="app-container hidden" style="display: flex; flex-direction: column; justify-content: center; min-height: 80vh;">
+        <div class="card" style="text-align: center; padding: 40px 20px;">
+            <div style="font-size: 3rem; color: #f59e0b; margin-bottom: 20px;">
+                <i class="fa-solid fa-user-gear"></i>
+            </div>
+            <h2 style="margin-bottom: 10px; font-weight: 800;">시스템 관리자</h2>
+            <p style="color: var(--text-muted); margin-bottom: 30px;">모든 직원이 사용하는 통일 보안코드를 변경할 수 있습니다.</p>
+            
+            <div class="form-group" style="margin-bottom: 20px;">
+                <input type="password" id="new-auth-code" placeholder="새로운 4자리 보안코드 입력" style="text-align: center; letter-spacing: 5px; font-size: 1.2rem; padding: 12px;">
+            </div>
+            
+            <button id="change-code-btn" class="btn primary-btn" style="margin-bottom: 15px; background: linear-gradient(135deg, #f59e0b, #d97706); box-shadow: 0 4px 20px rgba(245, 158, 11, 0.3);">
+                <i class="fa-solid fa-pen-to-square"></i> 보안코드 변경하기
+            </button>
+            <button id="back-to-login-btn" class="btn secondary-btn">
+                <i class="fa-solid fa-arrow-left"></i> 로그인 화면으로 돌아가기
+            </button>
+        </div>
+    </div>
+
+    <!-- 메인 앱 컨테이너 (초기 숨김) -->
+    <div class="app-container hidden" id="main-app">
+        <header>
+            <h1>대기환경 측정 자동화</h1>
+            <p>현장 측정 및 성적서 자동 발행 시스템 (MVP)</p>
+        </header>
+
+        <main>
+            <!-- 1. 모바일 현장 입력 화면 -->
+            <section class="card input-section">
+                <div class="form-group">
+                    <label for="workplace"><i class="fa-solid fa-building"></i> 사업장 선택</label>
+                    <div class="select-wrapper">
+                        <select id="workplace">
+                            <option value="" disabled selected>사업장을 선택하세요</option>
+                            <!-- Options will be populated by db.js -->
+                        </select>
+                    </div>
+                </div>
+                
+                <div class="data-grid" style="margin-bottom: 20px;">
+                    <div class="data-item">
+                        <label><i class="fa-solid fa-door-open" style="color: var(--primary);"></i> 배출구 번호</label>
+                        <select id="vent-num" disabled>
+                            <option value="" disabled selected>사업장을 먼저 선택하세요</option>
+                        </select>
+                    </div>
+                    <div class="data-item">
+                        <label><i class="fa-solid fa-building" style="color: var(--primary);"></i> 시설 종류</label>
+                        <input type="text" id="facility-type" placeholder="예: 도장시설, 분리시설" style="padding: 12px; border: 1px solid #cbd5e1; border-radius: 8px;">
+                    </div>
+                    <div class="data-item" style="grid-column: 1 / -1;">
+                        <label><i class="fa-solid fa-vial" style="color: var(--primary);"></i> 측정 항목 (다중 선택)</label>
+                        <div id="item-checkboxes" style="display: flex; gap: 15px; flex-wrap: wrap; padding: 15px; border: 1px solid #cbd5e1; border-radius: 8px; background: #f8fafc; min-height: 50px;">
+                            <span style="color: #94a3b8; font-size: 0.9rem;">사업장을 선택하면 항목이 표시됩니다.</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card" id="advanced-input-card" style="margin-top: 20px;">
+                    <div class="section-header" style="cursor: pointer; margin-bottom: 0;" onclick="toggleAdvanced()">
+                        <h2><i class="fa-solid fa-sliders"></i> 상세 현장/밀도 데이터 (옵션)</h2>
+                        <i class="fa-solid fa-chevron-down" id="adv-chevron" style="transition: transform 0.3s;"></i>
+                    </div>
+                    <div id="advanced-inputs" class="hidden" style="margin-top: 20px;">
+                        
+                        <!-- 가스 밀도 방식 선택 -->
+                        <div style="background: #f8fafc; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
+                            <label style="font-weight: bold; margin-bottom: 10px; display: block;">표준 배출가스 밀도 (ro) 설정</label>
+                            <div class="select-wrapper" style="margin-bottom: 10px;">
+                                <select id="gas-density-type" onchange="toggleGasInputs()">
+                                    <option value="air">일반 공기 기준 (1.3 kg/Sm³)</option>
+                                    <option value="custom">가스 조성 백분율 직접 입력</option>
+                                </select>
+                            </div>
+                            <div id="gas-comp-inputs" class="data-grid hidden">
+                                <div class="data-item">
+                                    <label>CO₂ (%)</label>
+                                    <input type="number" id="comp-co2" value="0" step="0.1">
+                                </div>
+                                <div class="data-item">
+                                    <label>O₂ (%)</label>
+                                    <input type="number" id="comp-o2" value="21" step="0.1">
+                                </div>
+                                <div class="data-item">
+                                    <label>N₂ (%)</label>
+                                    <input type="number" id="comp-n2" value="79" step="0.1">
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="data-grid">
+                            <div class="data-item">
+                                <label>습도 (%)</label>
+                                <input type="number" id="adv-humidity" value="88" step="0.1">
+                            </div>
+                            <div class="data-item" style="grid-column: 1 / -1; margin-top: 15px; background: #f0fdf4; border: 1px solid #86efac; border-radius: 8px; padding: 15px;">
+                                <label style="color: #166534;"><i class="fa-solid fa-file-invoice"></i> 거래명세서 항목 (품목 / 수량 / 단가)</label>
+                                <div id="invoice-items-container">
+                                    <div class="invoice-row" style="display:flex; gap:10px; margin-bottom:8px;">
+                                        <input type="text" class="inv-name" placeholder="품목 (예: 도장시설 측정비)" style="flex:2; border: 1px solid #cbd5e1; border-radius: 4px; padding: 6px;">
+                                        <input type="number" class="inv-qty" placeholder="수량" style="flex:1; border: 1px solid #cbd5e1; border-radius: 4px; padding: 6px;">
+                                        <input type="number" class="inv-price" step="10000" placeholder="단가" style="flex:2; border: 1px solid #cbd5e1; border-radius: 4px; padding: 6px;">
+                                        <button type="button" class="remove-inv-row" style="background:none; border:none; color:#ef4444; cursor:pointer; padding:5px;"><i class="fa-solid fa-xmark"></i></button>
+                                    </div>
+                                </div>
+                                <button type="button" id="add-invoice-btn" class="btn" style="background: #e2e8f0; color: #334155; padding: 8px; width: 100%; border-radius: 8px; border: 1px dashed #cbd5e1; margin-top: 5px; font-size: 0.9rem;">
+                                    <i class="fa-solid fa-plus"></i> 항목 추가
+                                </button>
+                            </div>
+                        <div class="data-item">
+                            <label>풍향</label>
+                            <div class="select-wrapper">
+                                <select id="adv-wind-dir">
+                                    <option value="북">북</option>
+                                    <option value="남">남</option>
+                                    <option value="동">동</option>
+                                    <option value="서">서</option>
+                                    <option value="남남서" selected>남남서</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="data-item">
+                            <label>풍속 (m/s)</label>
+                            <input type="number" id="adv-wind-speed" value="3.4" step="0.1">
+                        </div>
+                        <div class="data-item">
+                            <label>정압 Ps (mmHg)</label>
+                            <input type="number" id="adv-ps" value="-0.55" step="0.01">
+                        </div>
+                        <div class="data-item">
+                            <label>동압 h (mmH2O)</label>
+                            <input type="number" id="adv-h" value="8.8" step="0.1">
+                        </div>
+                        <div class="data-item">
+                            <label>오리피스 압차 ΔH (mmH2O)</label>
+                            <input type="number" id="adv-dh" value="29.8" step="0.1">
+                        </div>
+                        <div class="data-item">
+                            <label>가스미터 온도 Θm (℃)</label>
+                            <input type="number" id="adv-tm" value="27.5" step="0.1">
+                        </div>
+                        <div class="data-item">
+                            <label>수분 포집량 (g/mL)</label>
+                            <input type="number" id="adv-vic" value="6.5" step="0.1">
+                        </div>
+                        <div class="data-item">
+                            <label>노즐 내경 (cm)</label>
+                            <input type="number" id="adv-nozzle" value="0.622" step="0.001">
+                        </div>
+                        <div class="data-item">
+                            <label>총 채취시간 (분)</label>
+                            <input type="number" id="adv-time" value="22" step="1">
+                        </div>
+                        <div class="data-item">
+                            <label>가스미터 채취량 Vm (L)</label>
+                            <input type="number" id="adv-vm" value="401.9" step="0.1">
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="form-group" id="camera-section" style="margin-top: 20px;">
+                    <label><i class="fa-solid fa-camera-retro"></i> 측정 데이터 수집</label>
+                    <div class="upload-area" id="upload-area">
+                        <input type="file" id="camera-input" accept="image/*" capture="environment">
+                        <div class="upload-content">
+                            <div class="icon-circle">
+                                <i class="fa-solid fa-camera"></i>
+                            </div>
+                            <h3>계기판/기록지 사진 촬영</h3>
+                            <p>터치하여 카메라를 실행하세요</p>
+                        </div>
+                    </div>
+                    <button id="manual-input-btn" class="btn secondary-btn" style="margin-top: 12px; font-size: 1rem; padding: 14px;">
+                        <i class="fa-solid fa-keyboard"></i> 수동으로 수치 직접 입력하기
+                    </button>
+                </div>
+            </section>
+
+            <!-- 2. AI (OCR) 사진 인식 시뮬레이션 -->
+            <section class="card ocr-loading hidden" id="ocr-loading">
+                <div class="spinner"></div>
+                <h3 class="gradient-text">AI 분석 중...</h3>
+                <p>계기판 수치를 자동으로 인식하고 있습니다.</p>
+            </section>
+
+            <!-- 측정 데이터 폼 (인식 후 채워짐) -->
+            <section class="card data-section hidden" id="data-section">
+                <div class="section-header">
+                    <h2><i class="fa-solid fa-chart-bar"></i> 원시 데이터</h2>
+                    <span class="badge success"><i class="fa-solid fa-check"></i> AI 인식 완료</span>
+                </div>
+                
+                <div class="data-grid" id="data-grid-container">
+                    <div class="data-item">
+                        <label>가스미터 온도 (℃)</label>
+                        <input type="number" id="temp" step="0.1" placeholder="예: 26.0">
+                    </div>
+                    <div class="data-item">
+                        <label>대기압 (mmHg)</label>
+                        <input type="number" id="pressure" step="0.1" placeholder="예: 751.7">
+                    </div>
+                    <div class="data-item">
+                        <label>실측산소량 (%)</label>
+                        <input type="number" id="oxygen" step="0.01" placeholder="예: 20.95">
+                    </div>
+                    <div class="data-item">
+                        <label>흡인관 길이 (m)</label>
+                        <input type="number" id="pipe-length" step="0.1" placeholder="예: 1.5">
+                    </div>
+                    <div class="data-item">
+                        <label>실제 채취량 (m³)</label>
+                        <input type="number" id="volume" step="0.0001" placeholder="예: 0.4019">
+                    </div>
+                </div>
+                
+                <div id="dynamic-c-inputs" class="data-grid" style="margin-top: 15px; border-top: 1px dashed #cbd5e1; padding-top: 15px;">
+                    <!-- 항목별 농도값이 동적으로 여기에 추가됨 -->
+                </div>
+
+                <!-- 3. 엑셀 기반 자동 계산 로직 실행 버튼 -->
+                <button id="calc-btn" class="btn primary-btn mt-4">
+                    <i class="fa-solid fa-calculator"></i> 공정시험법 자동 계산 실행
+                </button>
+            </section>
+
+            <!-- 계산 결과 및 성적서 발행 -->
+            <section class="card result-section hidden" id="result-section">
+                 <div class="section-header">
+                    <h2><i class="fa-solid fa-square-poll-vertical"></i> 계산 결과</h2>
+                </div>
+                <div class="result-stats">
+                    <div class="stat-box">
+                        <span class="label">표준상태 부피 (V<sub>s</sub>)</span>
+                        <span class="value" id="res-vs">-</span>
+                    </div>
+                    <div class="stat-box">
+                        <span class="label">보정 가스농도 (C)</span>
+                        <span class="value" id="res-c">-</span>
+                    </div>
+                </div>
+                
+                <!-- 4. 원클릭 성적서 발행 버튼 -->
+                <button id="report-btn" class="btn success-btn mt-4">
+                    <i class="fa-solid fa-file-signature"></i> 법정 성적서 발행하기
+                </button>
+            </section>
+        </main>
+    </div>
+
+    <!-- 성적서 모달 창 (엑셀 양식 반영) -->
+    <div class="modal-overlay hidden" id="report-modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>문서 미리보기</h2>
+                <div class="modal-tabs" style="display: flex; gap: 10px;">
+                    <button class="tab-btn active" onclick="switchTab('tab-report')" style="padding: 8px 16px; border-radius: 8px; border: none; background: var(--primary); color: white; cursor: pointer; font-weight: bold;">결과보고서</button>
+                    <button class="tab-btn" onclick="switchTab('tab-record1')" style="padding: 8px 16px; border-radius: 8px; border: 1px solid #cbd5e1; background: white; color: #475569; cursor: pointer;">시료채취기록부</button>
+                    <button class="tab-btn" onclick="switchTab('tab-record2')" style="padding: 8px 16px; border-radius: 8px; border: 1px solid #cbd5e1; background: white; color: #475569; cursor: pointer;">1m이내기록부</button>
+                    <button class="tab-btn" onclick="switchTab('tab-record3')" style="padding: 8px 16px; border-radius: 8px; border: 1px solid #cbd5e1; background: white; color: #475569; cursor: pointer;">1m이내기록지</button>
+                    <button class="tab-btn" onclick="switchTab('tab-record4')" style="padding: 8px 16px; border-radius: 8px; border: 1px solid #cbd5e1; background: white; color: #475569; cursor: pointer;">거래명세서</button>
+                </div>
+                <button class="close-btn" id="close-modal">&times;</button>
+            </div>
+            <div class="modal-body" id="printable-area">
+                
+                <!-- 1. 성적서 탭 -->
+                <div id="tab-report" class="print-page">
+                    <div class="report-paper">
+                        <div class="report-header-top" style="text-align: left; font-size: 0.85rem; margin-bottom: 10px; color: #333;">
+                        [별지 제10호서식] &lt;개정 2022. 8. 11.&gt;
+                    </div>
+                    <h1 class="report-title">반기별 자가측정 결과보고서</h1>
+                    <table class="report-table">
+                        <tr>
+                            <th colspan="2" style="background-color: #f8f9fa;">사업장명</th>
+                            <td id="rep-workplace" colspan="6" style="font-weight:bold; text-align: left; padding-left: 15px;"></td>
+                        </tr>
+                        <tr style="background-color: #f8f9fa;">
+                            <th style="width: 8%;">배출구</th>
+                            <th style="width: 17%;">측정일자</th>
+                            <th style="width: 15%;">측정항목</th>
+                            <th style="width: 15%;">측정농도</th>
+                            <th style="width: 10%;">배출허용<br>기준</th>
+                            <th style="width: 10%;">일일유량<br>(㎥/일)</th>
+                            <th style="width: 12%;">측정분석방법</th>
+                            <th style="width: 13%;">측정기관</th>
+                        </tr>
+                        <tr>
+                            <td id="rep-vent"></td>
+                            <td id="rep-date"></td>
+                            <td id="rep-item"></td>
+                            <td id="rep-c" class="highlight-val"></td>
+                            <td id="rep-limit">-</td>
+                            <td id="rep-flow">350</td>
+                            <td style="font-size: 0.85em; word-break: keep-all;">대기오염공정<br>시험기준</td>
+                            <td style="font-size: 0.9em;">(주)충남환경</td>
+                        </tr>
+                    </table>
+                    <div class="signature-area">
+                        <p style="text-align: justify; text-justify: inter-word; line-height: 1.6; margin-top: 30px;">
+                            「대기환경보전법」 제39조제3항 및 같은 법 시행규칙 제52조제3항에 따라 반기별 자가측정 결과보고서를 제출합니다.
+                        </p>
+                        <p class="date" id="rep-today-date" style="margin-top: 30px; margin-bottom: 30px;"></p>
+                        <p class="sign" style="text-align: right; padding-right: 10px;">
+                            제출인 : <span id="rep-submitter" style="font-weight:bold; margin-right: 10px;"></span> (서명 또는 인)
+                        </p>
+                        <h2 style="text-align: left; margin-top: 50px; font-size: 1.3rem; margin-bottom: 10px;">대덕구청장 귀하</h2>
+                    </div>
+                </div>
+                </div> <!-- End tab-report -->
+
+                <!-- 2. 시료채취기록부 탭 -->
+                <div id="tab-record1" class="print-page" style="display: none;">
+                    <div class="report-paper">
+                        <h1 class="report-title" style="font-size: 1.4rem; letter-spacing: 1px; border-bottom: none;">대기시료채취 및 시료접수 기록부</h1>
+                        <!-- Complex Table Will Go Here -->
+                        <div id="record1-container"></div>
+                    </div>
+                </div>
+
+                <!-- 3. 1m이내기록부 탭 -->
+                <div id="tab-record2" class="print-page" style="display: none;">
+                    <div class="report-paper">
+                        <div class="report-header-top" style="text-align: left; font-size: 0.85rem; margin-bottom: 10px; color: #333;">
+                            [별지제21호서식] &lt;개정 2024.11.01&gt;
+                        </div>
+                        <h1 class="report-title" style="font-size: 1.4rem; letter-spacing: 1px;">대 기 측 정 기 록 부</h1>
+                        <!-- Complex Table Will Go Here -->
+                        <div id="record2-container"></div>
+                    </div>
+                </div>
+
+                <!-- 4. 1m이내기록지 탭 -->
+                <div id="tab-record3" class="print-page" style="display: none;">
+                    <div class="report-paper">
+                        <!-- Complex Table Will Go Here -->
+                        <div id="record3-container"></div>
+                    </div>
+                </div>
+
+                <!-- 5. 거래명세서 탭 -->
+                <div id="tab-record4" class="print-page" style="display: none;">
+                    <div class="report-paper">
+                        <div id="record4-container"></div>
+                    </div>
+                </div>
+
+            </div>
+            <div class="modal-footer">
+                <button class="btn secondary-btn" id="close-modal-bottom">닫기</button>
+                <button class="btn print-btn" onclick="window.print()"><i class="fa-solid fa-print"></i> 인쇄 / PDF 저장</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="db.js"></script>
+    <script src="templates.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>
