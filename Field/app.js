@@ -128,54 +128,17 @@ document.addEventListener('DOMContentLoaded', () => {
             option.text = companyName;
             workplaceSelect.appendChild(option);
         });
-    }
 
-    const itemCheckboxesContainer = document.getElementById('item-checkboxes');
-    const dynamicCInputsContainer = document.getElementById('dynamic-c-inputs');
-
-    function renderCheckboxes() {
-        itemCheckboxesContainer.innerHTML = '';
+        // Populate Target Items
         DB.allItems.sort().forEach(item => {
-            const label = document.createElement('label');
-            label.style.display = 'flex';
-            label.style.alignItems = 'center';
-            label.style.gap = '5px';
-            label.style.cursor = 'pointer';
-
-            const cb = document.createElement('input');
-            cb.type = 'checkbox';
-            cb.value = item;
-            cb.className = 'item-cb';
-            cb.addEventListener('change', renderDynamicInputs);
-
-            label.appendChild(cb);
-            label.appendChild(document.createTextNode(item));
-            itemCheckboxesContainer.appendChild(label);
+            const option = document.createElement('option');
+            option.value = item;
+            option.text = item;
+            targetItemSelect.appendChild(option);
         });
     }
 
-    function renderDynamicInputs() {
-        const checkedItems = Array.from(document.querySelectorAll('.item-cb:checked')).map(cb => cb.value);
-        dynamicCInputsContainer.innerHTML = '';
-
-        if (checkedItems.length === 0) {
-            dynamicCInputsContainer.innerHTML = '<span style="color: #94a3b8; font-size: 0.9rem;">측정 항목을 선택하면 농도 입력칸이 표시됩니다.</span>';
-            return;
-        }
-
-        checkedItems.forEach(item => {
-            const unit = item === '먼지' ? 'mg' : 'ppm';
-            const div = document.createElement('div');
-            div.className = 'data-item';
-            div.innerHTML = `
-                <label>분석기 측정값 - ${item} (${unit})</label>
-                <input type="number" class="raw-value-input" data-item="${item}" step="0.001" placeholder="${item} 값을 입력하세요">
-            `;
-            dynamicCInputsContainer.appendChild(div);
-        });
-    }
-
-    // Handle Workplace Change -> Update Vent Numbers and Items
+    // Handle Workplace Change -> Update Vent Numbers
     workplaceSelect.addEventListener('change', () => {
         ventSelect.innerHTML = '<option value="" disabled selected>배출구를 선택하세요</option>';
         ventSelect.disabled = false;
@@ -187,7 +150,15 @@ document.addEventListener('DOMContentLoaded', () => {
                 option.text = `${vent}번 배출구`;
                 ventSelect.appendChild(option);
             });
-            renderCheckboxes();
+        }
+    });
+
+    // Handle Target Item Change -> Update Label (mg vs ppm)
+    targetItemSelect.addEventListener('change', () => {
+        if (targetItemSelect.value === '먼지') {
+            rawValueLabel.innerHTML = '분석기 측정값 (mg)';
+        } else {
+            rawValueLabel.innerHTML = '분석기 측정값 (ppm)';
         }
     });
 
@@ -254,69 +225,56 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // 2. Excel-based Calculation Logic
-    // Store the processed items globally so report can use them
-    let processedItemsData = [];
-
     calcBtn.addEventListener('click', () => {
         const temp = parseFloat(tempInput.value);
         const pressure = parseFloat(pressureInput.value);
         const oxygen = parseFloat(oxygenInput.value);
         const volume = parseFloat(volumeInput.value);
         const pipeLength = parseFloat(pipeLengthInput.value);
+        const rawValue = parseFloat(rawValueInput.value);
         
-        const rawInputs = document.querySelectorAll('.raw-value-input');
-        if (rawInputs.length === 0) {
-            alert('최소 1개 이상의 측정 항목을 선택해주세요.');
-            return;
-        }
-
-        let isMissingRaw = false;
-        rawInputs.forEach(input => {
-            if (isNaN(parseFloat(input.value))) isMissingRaw = true;
-        });
-
-        // Validation
-        if (isNaN(temp) || isNaN(pressure) || isNaN(oxygen) || isNaN(volume) || isNaN(pipeLength) || isMissingRaw) {
+        // Validation (including new rawValue)
+        if (isNaN(temp) || isNaN(pressure) || isNaN(oxygen) || isNaN(volume) || isNaN(pipeLength) || isNaN(rawValue)) {
             alert('인식된 데이터 또는 분석기 측정값이 누락되었습니다. 빈칸을 모두 채워주세요.');
             return;
         }
 
+        /**
+         * 대기오염공정시험기준 기반 엑셀 계산식 실제 연동 (Mock Data 제거)
+         */
+        
         // 가. 표준상태 부피 (Vs) 계산
         const deadVolume = pipeLength * 0.0001; 
         const adjustedVolume = volume - deadVolume;
+        
         const vs = adjustedVolume * (293.15 / (273.15 + temp)) * (pressure / 760);
         
-        processedItemsData = [];
+        // 나. 원시 농도 산출
+        let rawConcentration = rawValue;
         
-        rawInputs.forEach(input => {
-            const item = input.getAttribute('data-item');
-            const rawValue = parseFloat(input.value);
-            
-            let rawConcentration = rawValue;
-            if (item === '먼지') {
-                rawConcentration = rawValue / vs; 
-            }
-            
-            const standardOxygen = 10; 
-            let c = rawConcentration;
-            
-            if (oxygen < 20.9) {
-                c = rawConcentration * ((21 - standardOxygen) / (21 - oxygen));
-            }
-            
-            processedItemsData.push({
-                name: item,
-                raw: rawValue,
-                finalC: c.toFixed(2),
-                unit: item === '먼지' ? 'mg/Sm³' : 'ppm'
-            });
-        });
+        // 먼지인 경우 mg 단위이므로 표준상태 부피(Vs)로 나누어 농도(mg/Sm3) 산출
+        // 가스상 물질인 경우 ppm 단위이므로 부피로 나누지 않고 원시 농도 그대로 유지
+        const selectedItem = targetItemSelect.value;
+        if (selectedItem === '먼지') {
+            rawConcentration = rawValue / vs; 
+        }
+        
+        // 다. 보정 가스농도 (C) 계산 (산소 보정 적용)
+        const standardOxygen = 10; 
+        let c = rawConcentration;
+        
+        // 대기 산소 농도(약 20.9%)와 다를 때만 보정 진행
+        if (oxygen < 20.9) {
+            c = rawConcentration * ((21 - standardOxygen) / (21 - oxygen));
+        }
 
         // 3. Update UI
         document.getElementById('res-vs').innerHTML = `${vs.toFixed(4)} <span>Sm³</span>`;
-        
-        let cResultHtml = processedItemsData.map(item => `${item.name}: ${item.finalC} <span>${item.unit}</span>`).join('<br>');
-        document.getElementById('res-c').innerHTML = cResultHtml;
+        if (selectedItem === '먼지') {
+            document.getElementById('res-c').innerHTML = `${c.toFixed(2)} <span>mg/Sm³</span>`;
+        } else {
+            document.getElementById('res-c').innerHTML = `${c.toFixed(2)} <span>ppm</span>`;
+        }
         
         resultSection.classList.remove('hidden');
         setTimeout(() => {
@@ -341,12 +299,13 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('rep-date').innerText = dateString;
         document.getElementById('rep-today-date').innerText = dateString;
         document.getElementById('rep-submitter').innerText = workplaceName; // 제출인은 해당 사업장
+        document.getElementById('rep-item').innerText = targetItemSelect.value || '-';
         
-        let repItemText = processedItemsData.map(i => i.name).join(', ');
-        document.getElementById('rep-item').innerText = repItemText || '-';
-        
-        let repCText = processedItemsData.map(i => `${i.name}: ${i.finalC} ${i.unit}`).join('\n');
-        document.getElementById('rep-c').innerText = repCText;
+        // 최종 산출된 보정 농도 적용 (DOM 요소 파싱)
+        const resCText = document.getElementById('res-c').innerText;
+        const finalC = parseFloat(resCText) || 0;
+        const unit = resCText.includes('mg') ? 'mg/Sm³' : 'ppm';
+        document.getElementById('rep-c').innerText = finalC.toFixed(2) + ' ' + unit;
         const oxygenValue = parseFloat(document.getElementById('oxygen').value) || 20.9;
 
         if (typeof Templates !== 'undefined') {
@@ -362,13 +321,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const advData = {
                 workplaceName: workplaceName,
-                facilityType: document.getElementById('facility-type').value || '기타시설',
                 sampler: authNameSelect.value || '지정안됨',
                 date: dateString,
                 temp: parseFloat(document.getElementById('temp').value) || 26,
                 press: parseFloat(document.getElementById('pressure').value) || 751.7,
                 oxygen: oxygenValue,
-                items: processedItemsData,
+                item: targetItemSelect.value,
+                unit: unit,
+                C: finalC.toFixed(2),
                 ro: calcRo.toFixed(4),
                 humidity: parseFloat(document.getElementById('adv-humidity').value) || 88,
                 windDir: document.getElementById('adv-wind-dir').value || '남남서',
@@ -382,33 +342,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 time: parseFloat(document.getElementById('adv-time').value) || 22,
                 vm: parseFloat(document.getElementById('adv-vm').value) || 401.9,
             };
-
-            const invoiceItems = Array.from(document.querySelectorAll('.invoice-row')).map(row => {
-                const name = row.querySelector('.inv-name').value;
-                const qtyVal = row.querySelector('.inv-qty').value;
-                const priceVal = row.querySelector('.inv-price').value;
-                return {
-                    month: new Date().getMonth() + 1,
-                    day: new Date().getDate(),
-                    name: name,
-                    qty: qtyVal ? parseFloat(qtyVal) : '',
-                    price: priceVal ? parseFloat(priceVal) : '',
-                    spec: ''
-                };
-            }).filter(item => item.name || item.price !== '');
-
-            let totalSupply = 0;
-            let totalTax = 0;
-            invoiceItems.forEach(item => {
-                if (item.qty !== '' && item.price !== '') {
-                    totalSupply += item.qty * item.price;
-                    totalTax += (item.qty * item.price) * 0.1;
-                }
-            });
-            advData.invoiceItems = invoiceItems;
-            advData.totalSupply = totalSupply;
-            advData.totalTax = totalTax;
-            advData.totalAmount = totalSupply + totalTax;
 
             // 복잡한 엑셀 수식 계산
             // 1. 수분량 Xw
@@ -439,7 +372,6 @@ document.addEventListener('DOMContentLoaded', () => {
             document.getElementById('record1-container').innerHTML = Templates.record1(advData);
             document.getElementById('record2-container').innerHTML = Templates.record2(advData);
             document.getElementById('record3-container').innerHTML = Templates.record3(advData);
-            document.getElementById('record4-container').innerHTML = Templates.record4(advData);
         }
 
         // 모달 열기
@@ -469,43 +401,6 @@ function toggleGasInputs() {
         gasInputs.classList.add('hidden');
     }
 }
-
-document.addEventListener('DOMContentLoaded', () => {
-    // Invoice Dynamic Rows Logic
-    const addInvoiceBtn = document.getElementById('add-invoice-btn');
-    const invoiceContainer = document.getElementById('invoice-items-container');
-
-    if (addInvoiceBtn && invoiceContainer) {
-        addInvoiceBtn.addEventListener('click', () => {
-            const row = document.createElement('div');
-            row.className = 'invoice-row';
-            row.style.display = 'flex';
-            row.style.gap = '10px';
-            row.style.marginBottom = '8px';
-            row.innerHTML = `
-                <input type="text" class="inv-name" placeholder="품목 (예: 도장시설 측정비)" style="flex:2; border: 1px solid #cbd5e1; border-radius: 4px; padding: 6px;">
-                <input type="number" class="inv-qty" placeholder="수량" style="flex:1; border: 1px solid #cbd5e1; border-radius: 4px; padding: 6px;">
-                <input type="number" class="inv-price" step="10000" placeholder="단가" style="flex:2; border: 1px solid #cbd5e1; border-radius: 4px; padding: 6px;">
-                <button type="button" class="remove-inv-row" style="background:none; border:none; color:#ef4444; cursor:pointer; padding:5px;"><i class="fa-solid fa-xmark"></i></button>
-            `;
-            invoiceContainer.appendChild(row);
-        });
-
-        invoiceContainer.addEventListener('click', (e) => {
-            if (e.target.closest('.remove-inv-row')) {
-                const row = e.target.closest('.invoice-row');
-                if (invoiceContainer.children.length > 1) {
-                    row.remove();
-                } else {
-                    // Just clear the inputs if it's the last row
-                    row.querySelector('.inv-name').value = '';
-                    row.querySelector('.inv-qty').value = '';
-                    row.querySelector('.inv-price').value = '';
-                }
-            }
-        });
-    }
-});
 
 function toggleAdvanced() {
     const advInputs = document.getElementById('advanced-inputs');

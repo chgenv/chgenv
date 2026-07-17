@@ -94,14 +94,11 @@
                         </select>
                     </div>
                     <div class="data-item">
-                        <label><i class="fa-solid fa-building" style="color: var(--primary);"></i> 시설 종류</label>
-                        <input type="text" id="facility-type" placeholder="예: 도장시설, 분리시설" style="padding: 12px; border: 1px solid #cbd5e1; border-radius: 8px;">
-                    </div>
-                    <div class="data-item" style="grid-column: 1 / -1;">
-                        <label><i class="fa-solid fa-vial" style="color: var(--primary);"></i> 측정 항목 (다중 선택)</label>
-                        <div id="item-checkboxes" style="display: flex; gap: 15px; flex-wrap: wrap; padding: 15px; border: 1px solid #cbd5e1; border-radius: 8px; background: #f8fafc; min-height: 50px;">
-                            <span style="color: #94a3b8; font-size: 0.9rem;">사업장을 선택하면 항목이 표시됩니다.</span>
-                        </div>
+                        <label><i class="fa-solid fa-flask" style="color: var(--primary);"></i> 측정 항목</label>
+                        <select id="target-item">
+                            <option value="" disabled selected>항목을 선택하세요</option>
+                            <!-- Options will be populated by db.js -->
+                        </select>
                     </div>
                 </div>
 
@@ -141,20 +138,6 @@
                             <div class="data-item">
                                 <label>습도 (%)</label>
                                 <input type="number" id="adv-humidity" value="88" step="0.1">
-                            </div>
-                            <div class="data-item" style="grid-column: 1 / -1; margin-top: 15px; background: #f0fdf4; border: 1px solid #86efac; border-radius: 8px; padding: 15px;">
-                                <label style="color: #166534;"><i class="fa-solid fa-file-invoice"></i> 거래명세서 항목 (품목 / 수량 / 단가)</label>
-                                <div id="invoice-items-container">
-                                    <div class="invoice-row" style="display:flex; gap:10px; margin-bottom:8px;">
-                                        <input type="text" class="inv-name" placeholder="품목 (예: 도장시설 측정비)" style="flex:2; border: 1px solid #cbd5e1; border-radius: 4px; padding: 6px;">
-                                        <input type="number" class="inv-qty" placeholder="수량" style="flex:1; border: 1px solid #cbd5e1; border-radius: 4px; padding: 6px;">
-                                        <input type="number" class="inv-price" step="10000" placeholder="단가" style="flex:2; border: 1px solid #cbd5e1; border-radius: 4px; padding: 6px;">
-                                        <button type="button" class="remove-inv-row" style="background:none; border:none; color:#ef4444; cursor:pointer; padding:5px;"><i class="fa-solid fa-xmark"></i></button>
-                                    </div>
-                                </div>
-                                <button type="button" id="add-invoice-btn" class="btn" style="background: #e2e8f0; color: #334155; padding: 8px; width: 100%; border-radius: 8px; border: 1px dashed #cbd5e1; margin-top: 5px; font-size: 0.9rem;">
-                                    <i class="fa-solid fa-plus"></i> 항목 추가
-                                </button>
                             </div>
                         <div class="data-item">
                             <label>풍향</label>
@@ -240,7 +223,7 @@
                     <span class="badge success"><i class="fa-solid fa-check"></i> AI 인식 완료</span>
                 </div>
                 
-                <div class="data-grid" id="data-grid-container">
+                <div class="data-grid">
                     <div class="data-item">
                         <label>가스미터 온도 (℃)</label>
                         <input type="number" id="temp" step="0.1" placeholder="예: 26.0">
@@ -261,10 +244,10 @@
                         <label>실제 채취량 (m³)</label>
                         <input type="number" id="volume" step="0.0001" placeholder="예: 0.4019">
                     </div>
-                </div>
-                
-                <div id="dynamic-c-inputs" class="data-grid" style="margin-top: 15px; border-top: 1px dashed #cbd5e1; padding-top: 15px;">
-                    <!-- 항목별 농도값이 동적으로 여기에 추가됨 -->
+                    <div class="data-item">
+                        <label id="raw-value-label">분석기 측정값 (mg/ppm)</label>
+                        <input type="number" id="raw-value" step="0.001" placeholder="값을 입력하세요">
+                    </div>
                 </div>
 
                 <!-- 3. 엑셀 기반 자동 계산 로직 실행 버튼 -->
@@ -307,7 +290,6 @@
                     <button class="tab-btn" onclick="switchTab('tab-record1')" style="padding: 8px 16px; border-radius: 8px; border: 1px solid #cbd5e1; background: white; color: #475569; cursor: pointer;">시료채취기록부</button>
                     <button class="tab-btn" onclick="switchTab('tab-record2')" style="padding: 8px 16px; border-radius: 8px; border: 1px solid #cbd5e1; background: white; color: #475569; cursor: pointer;">1m이내기록부</button>
                     <button class="tab-btn" onclick="switchTab('tab-record3')" style="padding: 8px 16px; border-radius: 8px; border: 1px solid #cbd5e1; background: white; color: #475569; cursor: pointer;">1m이내기록지</button>
-                    <button class="tab-btn" onclick="switchTab('tab-record4')" style="padding: 8px 16px; border-radius: 8px; border: 1px solid #cbd5e1; background: white; color: #475569; cursor: pointer;">거래명세서</button>
                 </div>
                 <button class="close-btn" id="close-modal">&times;</button>
             </div>
@@ -383,15 +365,9 @@
                 <!-- 4. 1m이내기록지 탭 -->
                 <div id="tab-record3" class="print-page" style="display: none;">
                     <div class="report-paper">
+                        <h1 class="report-title" style="font-size: 1.4rem; letter-spacing: 1px; border-bottom: none;">먼지시료채취 기록지</h1>
                         <!-- Complex Table Will Go Here -->
                         <div id="record3-container"></div>
-                    </div>
-                </div>
-
-                <!-- 5. 거래명세서 탭 -->
-                <div id="tab-record4" class="print-page" style="display: none;">
-                    <div class="report-paper">
-                        <div id="record4-container"></div>
                     </div>
                 </div>
 

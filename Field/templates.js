@@ -238,7 +238,7 @@ const Templates = {
                 <td style="border-right: 3px solid #000;">70 %</td>
             </tr>
             <tr>
-                <td>의 뢰 항 목 : </td><td colspan="8" style="text-align:left; padding-left:5px; border-right: 3px solid #000;">${data.items.map(i => i.name).join(', ')}</td>
+                <td>의 뢰 항 목 : </td><td colspan="8" style="text-align:left; padding-left:5px; border-right: 3px solid #000;">먼지, 탄화수소</td>
             </tr>
 
             <tr>
@@ -324,9 +324,9 @@ const Templates = {
             </tr>
             <tr>
                 <td style="height:50px; border-left: 3px solid #000; border-bottom: 3px solid #000;">1</td>
-                <td colspan="2" style="border-bottom: 3px solid #000;">${data.items.map(i => i.name).join(', ')}</td>
-                <td style="border-bottom: 3px solid #000;">${data.items.map(i => i.unit).join(', ')}</td>
-                <td colspan="2" class="highlight-val" style="border-bottom: 3px solid #000;">${data.items.map(i => i.finalC).join(', ')}</td>
+                <td colspan="2" style="border-bottom: 3px solid #000;">${data.item}</td>
+                <td style="border-bottom: 3px solid #000;">${data.unit}</td>
+                <td colspan="2" class="highlight-val" style="border-bottom: 3px solid #000;">${data.C}</td>
                 <td style="border-bottom: 3px solid #000;">09:39 - 10:09</td>
                 <td style="border-bottom: 3px solid #000;">-</td>
                 <td colspan="2" style="border-right: 3px solid #000; border-bottom: 3px solid #000;">F.I.D (Propane)</td>
@@ -600,174 +600,5 @@ const Templates = {
                 </td>
             </tr>
         </table>
-    `,
-
-    record4: (data) => `
-        <div style="width: 100%; border: 3px solid #0000cc; padding: 2px; box-sizing: border-box; font-family: 'Malgun Gothic', '맑은 고딕', sans-serif; background: #fff;">
-            
-            <!-- Top Header -->
-            <table style="width: 100%; border-collapse: collapse; text-align: center; color: #00b050; font-size: 13px; font-weight: bold; border-bottom: 2px solid #0000cc;">
-                <tr>
-                    <td style="width: 15%; padding: 5px; border-right: 1px dashed #00b050; border-bottom: 1px dashed #00b050;">거 래 일 자</td>
-                    <td rowspan="2" style="width: 60%; font-size: 28px; letter-spacing: 15px; border-right: 1px dashed #00b050; vertical-align: bottom; padding-bottom: 5px;">거 래 명 세 표</td>
-                    <td rowspan="2" style="width: 25%; text-align: right; vertical-align: bottom; padding: 5px;">(공급받는자용)</td>
-                </tr>
-                <tr>
-                    <td style="padding: 5px; border-right: 1px dashed #00b050; color: #00b050;">${data.date.substring(0,4)}년 ${parseInt(data.date.substring(5,7))}월 ${parseInt(data.date.substring(8,10))}일</td>
-                </tr>
-            </table>
-
-            <!-- Info Section -->
-            <table style="width: 100%; border-collapse: collapse; font-size: 12px; text-align: center; border-bottom: 2px solid #0000cc;">
-                <tr>
-                    <!-- Receiver -->
-                    <td rowspan="5" style="width: 3%; padding: 5px; color: #00b050; border-right: 1px dashed #00b050; line-height: 1.8;">공<br>급<br>받<br>는<br>자</td>
-                    <td style="width: 10%; color: #00b050; border-right: 1px dashed #00b050; border-bottom: 1px dashed #00b050;">상 호<br>(법인명)</td>
-                    <td style="width: 35%; color: #000; font-weight: bold; border-right: 2px solid #0000cc; border-bottom: 1px dashed #00b050; text-align: left; padding-left: 10px;">
-                        ${data.workplaceName} <span style="color: #00b050; float: right; padding-right: 10px;">귀하</span>
-                    </td>
-
-                    <!-- Provider -->
-                    <td rowspan="5" style="width: 3%; padding: 5px; color: #00b050; border-right: 1px dashed #00b050; line-height: 1.8;">공<br><br>급<br><br>자</td>
-                    <td style="width: 10%; color: #00b050; border-right: 1px dashed #00b050; border-bottom: 1px dashed #00b050;">등록번호</td>
-                    <td colspan="3" style="width: 39%; color: #000; font-weight: bold; border-bottom: 1px dashed #00b050; font-size: 14px; letter-spacing: 5px;">
-                        3 1 0 - 8 6 - 0 2 0 8 2
-                    </td>
-                </tr>
-                <tr>
-                    <td rowspan="2" style="color: #00b050; border-right: 1px dashed #00b050; border-bottom: 1px dashed #00b050;">사업장<br>주 소</td>
-                    <td rowspan="2" style="color: #000; border-right: 2px solid #0000cc; border-bottom: 1px dashed #00b050; text-align:left; padding-left:5px;">충남 공주시 납다리길 10 (소학동)</td>
-
-                    <td style="color: #00b050; border-right: 1px dashed #00b050; border-bottom: 1px dashed #00b050;">상 호<br>(법인명)</td>
-                    <td style="color: #000; font-weight: bold; border-right: 1px dashed #00b050; border-bottom: 1px dashed #00b050;">주식회사 충남환경</td>
-                    <td style="width: 5%; color: #00b050; border-right: 1px dashed #00b050; border-bottom: 1px dashed #00b050;">성<br>명</td>
-                    <td style="width: 14%; color: #000; font-weight: bold; border-bottom: 1px dashed #00b050;">박종혁,최천</td>
-                </tr>
-                <tr>
-                    <td style="color: #00b050; border-right: 1px dashed #00b050; border-bottom: 1px dashed #00b050;">사업장<br>주 소</td>
-                    <td colspan="3" style="color: #000; border-bottom: 1px dashed #00b050; text-align:left; padding-left:5px;">충남 공주시 백미고을길 10-9, 2층</td>
-                </tr>
-                <tr>
-                    <td rowspan="2" style="color: #00b050; border-right: 1px dashed #00b050;">전화번호</td>
-                    <td rowspan="2" style="color: #000; border-right: 2px solid #0000cc;">041-881-5471</td>
-                </tr>
-                <tr>
-                    <td style="color: #00b050; border-right: 1px dashed #00b050;">전 화</td>
-                    <td style="color: #000; border-right: 1px dashed #00b050;">041-881-8201</td>
-                    <td style="color: #00b050; border-right: 1px dashed #00b050;">팩<br>스</td>
-                    <td style="color: #000;">041-881-8202</td>
-                </tr>
-                <tr>
-                    <td colspan="2" style="color: #00b050; border-top: 1px dashed #00b050; border-right: 1px dashed #00b050; padding: 5px;">합계금액</td>
-                    <td style="color: #000; font-weight: bold; font-size: 14px; text-align: center; border-top: 1px dashed #00b050; border-right: 2px solid #0000cc;">
-                        ₩${data.totalAmount.toLocaleString()}
-                    </td>
-                    <!-- Blank cells for provider bottom row -->
-                    <td colspan="5" style="border-top: 1px dashed #00b050;"></td>
-                </tr>
-            </table>
-
-            <!-- Items Section -->
-            <table style="width: 100%; border-collapse: collapse; font-size: 12px; text-align: center; color: #000;">
-                <colgroup>
-                    <col style="width: 3%">
-                    <col style="width: 3%">
-                    <col style="width: 25%">
-                    <col style="width: 10%">
-                    <col style="width: 8%">
-                    <col style="width: 15%">
-                    <col style="width: 15%">
-                    <col style="width: 11%">
-                    <col style="width: 10%">
-                </colgroup>
-                <tr style="color: #00b050; font-weight: bold;">
-                    <th style="padding: 5px; border-right: 1px dashed #00b050; border-bottom: 2px solid #0000cc;">월</th>
-                    <th style="padding: 5px; border-right: 1px dashed #00b050; border-bottom: 2px solid #0000cc;">일</th>
-                    <th style="padding: 5px; border-right: 1px dashed #00b050; border-bottom: 2px solid #0000cc;">품 목</th>
-                    <th style="padding: 5px; border-right: 1px dashed #00b050; border-bottom: 2px solid #0000cc;">규 격</th>
-                    <th style="padding: 5px; border-right: 1px dashed #00b050; border-bottom: 2px solid #0000cc;">수 량</th>
-                    <th style="padding: 5px; border-right: 1px dashed #00b050; border-bottom: 2px solid #0000cc;">단 가</th>
-                    <th style="padding: 5px; border-right: 1px dashed #00b050; border-bottom: 2px solid #0000cc;">공 급 가 액</th>
-                    <th style="padding: 5px; border-right: 1px dashed #00b050; border-bottom: 2px solid #0000cc;">세 액</th>
-                    <th style="padding: 5px; border-bottom: 2px solid #0000cc;">비 고</th>
-                </tr>
-                ${Array(20).fill(0).map((_, i) => {
-                    const item = data.invoiceItems && data.invoiceItems[i] ? data.invoiceItems[i] : null;
-                    const month = item && item.month ? item.month : '';
-                    const day = item && item.day ? item.day : '';
-                    const name = item ? item.name : '';
-                    const spec = item ? item.spec : '';
-                    const qty = item && item.qty ? item.qty : '';
-                    const price = item && item.price ? item.price.toLocaleString() : '';
-                    
-                    let supply = '';
-                    let tax = '';
-                    let rowColor = '#000';
-                    if (item && item.qty && item.price) {
-                        const s = item.qty * item.price;
-                        const t = s * 0.1;
-                        if (s < 0) {
-                            supply = '(' + Math.abs(s).toLocaleString() + ')';
-                            tax = '(' + Math.abs(t).toLocaleString() + ')';
-                            rowColor = 'red';
-                        } else {
-                            supply = s.toLocaleString();
-                            tax = t.toLocaleString();
-                        }
-                    }
-                    
-                    return \`
-                    <tr style="height: 25px; color: \${rowColor};">
-                        <td style="border-right: 1px dashed #00b050; border-bottom: 1px dashed #00b050;">\${month}</td>
-                        <td style="border-right: 1px dashed #00b050; border-bottom: 1px dashed #00b050;">\${day}</td>
-                        <td style="border-right: 1px dashed #00b050; border-bottom: 1px dashed #00b050; text-align: center;">\${name}</td>
-                        <td style="border-right: 1px dashed #00b050; border-bottom: 1px dashed #00b050;">\${spec}</td>
-                        <td style="border-right: 1px dashed #00b050; border-bottom: 1px dashed #00b050;">\${qty}</td>
-                        <td style="border-right: 1px dashed #00b050; border-bottom: 1px dashed #00b050; text-align: right; padding-right: 10px;">\${price}</td>
-                        <td style="border-right: 1px dashed #00b050; border-bottom: 1px dashed #00b050; text-align: right; padding-right: 10px;">\${supply}</td>
-                        <td style="border-right: 1px dashed #00b050; border-bottom: 1px dashed #00b050; text-align: right; padding-right: 10px;">\${tax}</td>
-                        <td style="border-bottom: 1px dashed #00b050;"></td>
-                    </tr>
-                    \`;
-                }).join('')}
-            </table>
-            
-            <!-- Footer Section -->
-            <div style="padding: 10px; border-bottom: 1px dashed #00b050; text-align: left; font-size: 13px;">
-                <div style="font-weight: bold; margin-bottom: 5px;">수수료 입금통장</div>
-                <div style="font-weight: bold; font-size: 15px;">신한은행 100-034-664240(주식회사 충남환경)</div>
-            </div>
-            
-            <table style="width: 100%; border-collapse: collapse; font-size: 12px; text-align: center; color: #000;">
-                <colgroup>
-                    <col style="width: 6%">
-                    <col style="width: 58%">
-                    <col style="width: 15%">
-                    <col style="width: 11%">
-                    <col style="width: 10%">
-                </colgroup>
-                <tr>
-                    <td colspan="2" style="color: #00b050; font-weight: bold; font-size: 14px; padding: 5px; border-bottom: 2px solid #0000cc; border-right: 1px dashed #00b050;">합 계</td>
-                    <td style="border-bottom: 2px solid #0000cc; border-right: 1px dashed #00b050; text-align: right; padding-right: 10px; font-weight: bold;">${data.totalSupply.toLocaleString()}</td>
-                    <td style="border-bottom: 2px solid #0000cc; border-right: 1px dashed #00b050; text-align: right; padding-right: 10px; font-weight: bold;">${data.totalTax.toLocaleString()}</td>
-                    <td style="border-bottom: 2px solid #0000cc;"></td>
-                </tr>
-            </table>
-
-            <table style="width: 100%; border-collapse: collapse; font-size: 12px; text-align: center; color: #000;">
-                <tr>
-                    <td style="width: 5%; color: #00b050; padding: 5px; border-right: 1px dashed #00b050;">공 급<br>가 액</td>
-                    <td style="width: 15%; text-align: right; padding-right: 10px; border-right: 1px dashed #00b050;">${data.totalSupply.toLocaleString()}</td>
-                    <td style="width: 5%; color: #00b050; border-right: 1px dashed #00b050;">세 액</td>
-                    <td style="width: 15%; text-align: right; padding-right: 10px; border-right: 1px dashed #00b050;">${data.totalTax.toLocaleString()}</td>
-                    <td style="width: 5%; color: #00b050; border-right: 1px dashed #00b050;">합 계<br>금 액</td>
-                    <td style="font-weight: bold; text-align: right; padding-right: 10px; border-right: 1px dashed #00b050;">${data.totalAmount.toLocaleString()}</td>
-                    <td style="width: 5%; color: #00b050; border-right: 1px dashed #00b050;">미수금</td>
-                    <td style="border-right: 1px dashed #00b050; width: 10%;"></td>
-                    <td style="width: 5%; color: #00b050; border-right: 1px dashed #00b050;">인수자</td>
-                    <td style="width: 10%;">세금계산서담당자</td>
-                </tr>
-            </table>
-        </div>
     `
 };
