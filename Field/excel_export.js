@@ -8,6 +8,10 @@
 // 서식(괘선/병합/폰트 등)은 원본 엑셀 파일(templates/*.xlsx)을 그대로 사용하므로
 // 레이아웃이 실제 사용 양식과 100% 동일하다. 이 파일은 그 안의 "값"만 채워 넣는다.
 //
+// [2026-09-01 2차 수정] 결과보고서/기록부/기록지를 각각 따로 다운로드하던 것을,
+// 사용자 요청에 따라 template_combined.xlsx(시트 3개: 결과보고서/기록부/기록지)
+// 하나로 합쳐서 버튼 1개로 한 번에 받도록 변경.
+//
 // 주의: 여기서 채우지 못한(원본 데이터에 없는) 세부 항목(예: 시설가동상황의 연료
 // 사용량, 개별 채취점 여러 줄 등)은 빈 칸으로 남겨두므로, 다운로드한 뒤 필요하면
 // 엑셀에서 직접 보완해야 한다. 특정 업체의 예시 값이 다른 업체 문서에 잘못
@@ -16,19 +20,14 @@
 
 const ExcelExport = (() => {
     const TEMPLATE_PATHS = {
-        report: 'templates/template_report.xlsx',
-        gimokbu: 'templates/template_gimokbu.xlsx',
-        gimokji: 'templates/template_gimokji.xlsx',
+        combined: 'templates/template_combined.xlsx',
         statement: 'templates/template_statement.xlsx',
     };
     const SHEET_NAMES = {
-        report: '반기별',
-        gimokbu: '1m이내기록부',
-        gimokji: '1m이내기록지',
         statement: '거래명세표',
     };
 
-    async function loadTemplate(key) {
+    async function loadWorkbook(key) {
         if (typeof ExcelJS === 'undefined') {
             throw new Error('엑셀 생성 라이브러리(ExcelJS)를 불러오지 못했습니다. 인터넷 연결을 확인해주세요.');
         }
@@ -37,6 +36,11 @@ const ExcelExport = (() => {
         const buf = await res.arrayBuffer();
         const wb = new ExcelJS.Workbook();
         await wb.xlsx.load(buf);
+        return wb;
+    }
+
+    async function loadTemplate(key) {
+        const wb = await loadWorkbook(key);
         const ws = wb.getWorksheet(SHEET_NAMES[key]);
         return { wb, ws };
     }
@@ -72,130 +76,102 @@ const ExcelExport = (() => {
         return Number(v).toFixed(digits === undefined ? 2 : digits);
     }
 
-    // ---- 1. 반기별 자가측정 결과보고서 (별지 제21호서식) ----
-    async function downloadReport(ctx) {
-        const { wb, ws } = await loadTemplate('report');
-        const { companyInfo, ventDetail, workplaceName, ventNum, dateString, item, unit, C } = ctx;
+    // ---- 1~3. 결과보고서 + 기록부 + 기록지 (한 파일, 시트 3개) ----
+    async function downloadCombined(ctx) {
+        const wb = await loadWorkbook('combined');
+        const wsReport = wb.getWorksheet('결과보고서');   // 반기별 자가측정 결과보고서 (별지 제21호서식)
+        const wsGimokbu = wb.getWorksheet('기록부');       // 대기측정기록부 / 1m이내기록부
+        const wsGimokji = wb.getWorksheet('기록지');       // 먼지시료채취 기록지 / 1m이내기록지 ('먼지' 측정시에만 의미있음)
 
-        ws.getCell('E3').value = workplaceName;
-        ws.getCell('E5').value = '대표이사';
-        ws.getCell('N5').value = (companyInfo && companyInfo.techPerson) || '';
-        ws.getCell('E7').value = (companyInfo && companyInfo.address) || '';
-        ws.getCell('N7').value = (companyInfo && companyInfo.phone) || '';
-        ws.getCell('E8').value = gradeCheckbox(ventDetail && ventDetail.companyGrade);
-        ws.getCell('N8').value = halfYearLabel(new Date());
-
-        ws.getCell('F15').value = ventDetail ? `${ventNum}번 (${ventDetail.facilityType || ''})` : `${ventNum}번`;
-        ws.getCell('G15').value = (ventDetail && ventDetail.facilityGrade) ? `${ventDetail.facilityGrade}종` : '';
-        ws.getCell('H15').value = dateString;
-        ws.getCell('J15').value = item;
-        ws.getCell('L15').value = `${fmtNum(C)} ${unit}`;
-        ws.getCell('M15').value = (ventDetail && ventDetail.capacity != null) ? ventDetail.capacity : '';
-        ws.getCell('O15').value = '대기오염공정시험기준';
-
-        ws.getCell('A28').value = dateString;
-        ws.getCell('A29').value = workplaceName;
-
-        const buf = await wb.xlsx.writeBuffer();
-        triggerDownload(buf, `${safeFileName(workplaceName)}_반기별자가측정결과보고서_${ventNum}번배출구.xlsx`);
-    }
-
-    // ---- 2. 대기측정기록부 / 1m이내기록부 (별지 제21호서식 개정2024.11.01) ----
-    async function downloadGimokbu(ctx) {
-        const { wb, ws } = await loadTemplate('gimokbu');
         const {
             companyInfo, ventDetail, workplaceName, ventNum, dateString, sampler,
-            item, unit, C, temp, humidity, press, windDir, v, Xw, oxygen, standardOxygen, Q
+            item, unit, C, temp, humidity, press, windDir, v, Xw, oxygen, standardOxygen, Q, I, time, vm
         } = ctx;
 
-        ws.getCell('E4').value = workplaceName;
-        ws.getCell('E5').value = (companyInfo && companyInfo.address) || '';
-        ws.getCell('E6').value = '대표이사';
-        ws.getCell('E7').value = (companyInfo && companyInfo.techPerson) || '';
-        ws.getCell('K4').value = (ventDetail && ventDetail.facilityType) || '';
-        ws.getCell('K5').value = (ventDetail && ventDetail.companyGrade != null) ? ventDetail.companyGrade : '';
-        ws.getCell('K6').value = '-';
-        ws.getCell('K7').value = ventNum;
+        // 1) 결과보고서
+        wsReport.getCell('E3').value = workplaceName;
+        wsReport.getCell('E5').value = '대표이사';
+        wsReport.getCell('N5').value = (companyInfo && companyInfo.techPerson) || '';
+        wsReport.getCell('E7').value = (companyInfo && companyInfo.address) || '';
+        wsReport.getCell('N7').value = (companyInfo && companyInfo.phone) || '';
+        wsReport.getCell('E8').value = gradeCheckbox(ventDetail && ventDetail.companyGrade);
+        wsReport.getCell('N8').value = halfYearLabel(new Date());
+        wsReport.getCell('F15').value = ventDetail ? `${ventNum}번 (${ventDetail.facilityType || ''})` : `${ventNum}번`;
+        wsReport.getCell('G15').value = (ventDetail && ventDetail.facilityGrade) ? `${ventDetail.facilityGrade}종` : '';
+        wsReport.getCell('H15').value = dateString;
+        wsReport.getCell('J15').value = item;
+        wsReport.getCell('L15').value = `${fmtNum(C)} ${unit}`;
+        wsReport.getCell('M15').value = (ventDetail && ventDetail.capacity != null) ? ventDetail.capacity : '';
+        wsReport.getCell('O15').value = '대기오염공정시험기준';
+        wsReport.getCell('A28').value = dateString;
+        wsReport.getCell('A29').value = workplaceName;
 
-        ws.getCell('D11').value = (ventDetail && ventDetail.preventionFacility) || '';
-        ws.getCell('G11').value = (ventDetail && ventDetail.capacity != null) ? `${ventDetail.capacity} m³/분` : '';
-        ws.getCell('I11').value = (ventDetail && ventDetail.height != null) ? `${ventDetail.height} m` : '';
-        ws.getCell('J12').value = (ventDetail && ventDetail.circleDia) ? ventDetail.circleDia : '-';
-        ws.getCell('K12').value = (ventDetail && ventDetail.rectWidth) || '-';
-        ws.getCell('L12').value = (ventDetail && ventDetail.rectHeight) || '-';
-        ws.getCell('M11').value = (ventDetail && ventDetail.facilityGrade) ? `${ventDetail.facilityGrade}종` : '';
-        ws.getCell('N11').value = (ventDetail && ventDetail.efficiency != null) ? `${ventDetail.efficiency}%` : '';
-        ws.getCell('D13').value = ((ventDetail && ventDetail.items) || []).join(',');
+        // 2) 대기측정기록부 (1m이내기록부)
+        wsGimokbu.getCell('E4').value = workplaceName;
+        wsGimokbu.getCell('E5').value = (companyInfo && companyInfo.address) || '';
+        wsGimokbu.getCell('E6').value = '대표이사';
+        wsGimokbu.getCell('E7').value = (companyInfo && companyInfo.techPerson) || '';
+        wsGimokbu.getCell('K4').value = (ventDetail && ventDetail.facilityType) || '';
+        wsGimokbu.getCell('K5').value = (ventDetail && ventDetail.companyGrade != null) ? ventDetail.companyGrade : '';
+        wsGimokbu.getCell('K6').value = '-';
+        wsGimokbu.getCell('K7').value = ventNum;
+        wsGimokbu.getCell('D11').value = (ventDetail && ventDetail.preventionFacility) || '';
+        wsGimokbu.getCell('G11').value = (ventDetail && ventDetail.capacity != null) ? `${ventDetail.capacity} m³/분` : '';
+        wsGimokbu.getCell('I11').value = (ventDetail && ventDetail.height != null) ? `${ventDetail.height} m` : '';
+        wsGimokbu.getCell('J12').value = (ventDetail && ventDetail.circleDia) ? ventDetail.circleDia : '-';
+        wsGimokbu.getCell('K12').value = (ventDetail && ventDetail.rectWidth) || '-';
+        wsGimokbu.getCell('L12').value = (ventDetail && ventDetail.rectHeight) || '-';
+        wsGimokbu.getCell('M11').value = (ventDetail && ventDetail.facilityGrade) ? `${ventDetail.facilityGrade}종` : '';
+        wsGimokbu.getCell('N11').value = (ventDetail && ventDetail.efficiency != null) ? `${ventDetail.efficiency}%` : '';
+        wsGimokbu.getCell('D13').value = ((ventDetail && ventDetail.items) || []).join(',');
+        wsGimokbu.getCell('E16').value = temp;
+        wsGimokbu.getCell('G16').value = humidity;
+        wsGimokbu.getCell('I16').value = press;
+        wsGimokbu.getCell('K16').value = windDir;
+        wsGimokbu.getCell('C19').value = fmtNum(Q, 1);
+        wsGimokbu.getCell('D19').value = fmtNum(Q / 60, 2);
+        wsGimokbu.getCell('E19').value = '-';
+        wsGimokbu.getCell('F19').value = '-';
+        wsGimokbu.getCell('G19').value = fmtNum(v, 2);
+        wsGimokbu.getCell('I19').value = (standardOxygen !== undefined && standardOxygen !== null && !isNaN(standardOxygen)) ? standardOxygen : '-';
+        wsGimokbu.getCell('J19').value = oxygen;
+        wsGimokbu.getCell('K19').value = fmtNum(Xw, 2);
+        wsGimokbu.getCell('L19').value = temp;
+        wsGimokbu.getCell('E20').value = '정상가동 이상무';
+        wsGimokbu.getCell('K20').value = '정상가동 이상무';
+        wsGimokbu.getCell('E21').value = dateString;
+        wsGimokbu.getCell('K21').value = sampler || '';
+        wsGimokbu.getCell('C26').value = (ventDetail && ventDetail.facilityType) || '';
+        wsGimokbu.getCell('M26').value = (ventDetail && ventDetail.preventionFacility) || '';
+        wsGimokbu.getCell('B36').value = 1;
+        wsGimokbu.getCell('C36').value = item;
+        wsGimokbu.getCell('F36').value = unit;
+        wsGimokbu.getCell('G36').value = fmtNum(C);
+        wsGimokbu.getCell('K36').value = '-';
+        wsGimokbu.getCell('B65').value = dateString;
 
-        ws.getCell('E16').value = temp;
-        ws.getCell('G16').value = humidity;
-        ws.getCell('I16').value = press;
-        ws.getCell('K16').value = windDir;
-
-        ws.getCell('C19').value = fmtNum(Q, 1);
-        ws.getCell('D19').value = fmtNum(Q / 60, 2);
-        ws.getCell('E19').value = '-';
-        ws.getCell('F19').value = '-';
-        ws.getCell('G19').value = fmtNum(v, 2);
-        ws.getCell('I19').value = (standardOxygen !== undefined && standardOxygen !== null && !isNaN(standardOxygen)) ? standardOxygen : '-';
-        ws.getCell('J19').value = oxygen;
-        ws.getCell('K19').value = fmtNum(Xw, 2);
-        ws.getCell('L19').value = temp;
-
-        ws.getCell('E20').value = '정상가동 이상무';
-        ws.getCell('K20').value = '정상가동 이상무';
-        ws.getCell('E21').value = dateString;
-        ws.getCell('K21').value = sampler || '';
-
-        ws.getCell('C26').value = (ventDetail && ventDetail.facilityType) || '';
-        ws.getCell('M26').value = (ventDetail && ventDetail.preventionFacility) || '';
-
-        ws.getCell('B36').value = 1;
-        ws.getCell('C36').value = item;
-        ws.getCell('F36').value = unit;
-        ws.getCell('G36').value = fmtNum(C);
-        ws.getCell('K36').value = '-';
-
-        ws.getCell('B65').value = dateString;
-
-        const buf = await wb.xlsx.writeBuffer();
-        triggerDownload(buf, `${safeFileName(workplaceName)}_대기측정기록부_${ventNum}번배출구.xlsx`);
-    }
-
-    // ---- 3. 먼지시료채취 기록지 / 1m이내기록지 (측정항목이 '먼지'일 때만 사용) ----
-    async function downloadGimokji(ctx) {
-        const { wb, ws } = await loadTemplate('gimokji');
-        const {
-            companyInfo, ventDetail, workplaceName, dateString,
-            temp, press, humidity, windDir, oxygen, Xw, I, time, vm
-        } = ctx;
-
-        ws.getCell('I5').value = workplaceName;
-        ws.getCell('I6').value = (ventDetail && ventDetail.facilityType) || '';
-        ws.getCell('I7').value = dateString;
-        ws.getCell('I10').value = oxygen;
-        ws.getCell('I12').value = fmtNum(I, 2);
-        ws.getCell('L14').value = (ventDetail && ventDetail.rectWidth) || '';
-        ws.getCell('L15').value = (ventDetail && ventDetail.rectHeight) || '';
-
-        ws.getCell('AB6').value = temp;
-        ws.getCell('AB7').value = press;
-        ws.getCell('AB10').value = fmtNum(Xw, 2);
-
-        ws.getCell('U15').value = humidity;
-        ws.getCell('Y15').value = windDir;
-
-        ws.getCell('D21').value = time;
-        ws.getCell('J21').value = temp;
-        ws.getCell('S21').value = (vm !== undefined && vm !== null) ? (vm / 1000).toFixed(4) : '';
-
-        ws.getCell('D31').value = time;
-        ws.getCell('J32').value = temp;
-
-        ws.getCell('W52').value = dateString;
+        // 3) 먼지시료채취 기록지 (1m이내기록지) — '먼지' 측정이 아니면 대부분 빈 시트로 남음
+        wsGimokji.getCell('I5').value = workplaceName;
+        wsGimokji.getCell('I6').value = (ventDetail && ventDetail.facilityType) || '';
+        wsGimokji.getCell('I7').value = dateString;
+        wsGimokji.getCell('I10').value = oxygen;
+        wsGimokji.getCell('I12').value = fmtNum(I, 2);
+        wsGimokji.getCell('L14').value = (ventDetail && ventDetail.rectWidth) || '';
+        wsGimokji.getCell('L15').value = (ventDetail && ventDetail.rectHeight) || '';
+        wsGimokji.getCell('AB6').value = temp;
+        wsGimokji.getCell('AB7').value = press;
+        wsGimokji.getCell('AB10').value = fmtNum(Xw, 2);
+        wsGimokji.getCell('U15').value = humidity;
+        wsGimokji.getCell('Y15').value = windDir;
+        wsGimokji.getCell('D21').value = time;
+        wsGimokji.getCell('J21').value = temp;
+        wsGimokji.getCell('S21').value = (vm !== undefined && vm !== null) ? (vm / 1000).toFixed(4) : '';
+        wsGimokji.getCell('D31').value = time;
+        wsGimokji.getCell('J32').value = temp;
+        wsGimokji.getCell('W52').value = dateString;
 
         const buf = await wb.xlsx.writeBuffer();
-        triggerDownload(buf, `${safeFileName(workplaceName)}_먼지시료채취기록지.xlsx`);
+        triggerDownload(buf, `${safeFileName(workplaceName)}_측정서류_${ventNum}번배출구.xlsx`);
     }
 
     // ---- 4. 거래명세표 ----
@@ -240,5 +216,5 @@ const ExcelExport = (() => {
         triggerDownload(buf, `${safeFileName(workplaceName)}_거래명세표_${dateStr}.xlsx`);
     }
 
-    return { downloadReport, downloadGimokbu, downloadGimokji, downloadStatement, gradeCheckbox, halfYearLabel };
+    return { downloadCombined, downloadStatement, gradeCheckbox, halfYearLabel };
 })();

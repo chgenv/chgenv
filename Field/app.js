@@ -479,13 +479,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 oxygen: advData.oxygen, standardOxygen: isNaN(standardOxygenVal) ? null : standardOxygenVal,
                 Q: advData.Q, I: advData.I, time: advData.time, vm: advData.vm,
             };
-
-            // 측정항목이 '먼지'일 때만 먼지시료채취기록지(1m이내기록지) 엑셀 버튼 노출
-            const gimokjiBtn = document.getElementById('download-gimokji-xlsx-btn');
-            if (gimokjiBtn) {
-                if (advData.item === '먼지') gimokjiBtn.classList.remove('hidden');
-                else gimokjiBtn.classList.add('hidden');
-            }
         }
 
         // 모달 열기
@@ -513,18 +506,9 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    const downloadReportXlsxBtn = document.getElementById('download-report-xlsx-btn');
-    const downloadGimokbuXlsxBtn = document.getElementById('download-gimokbu-xlsx-btn');
-    const downloadGimokjiXlsxBtn = document.getElementById('download-gimokji-xlsx-btn');
-
-    if (downloadReportXlsxBtn) {
-        downloadReportXlsxBtn.addEventListener('click', () => handleExcelDownload(downloadReportXlsxBtn, ExcelExport.downloadReport));
-    }
-    if (downloadGimokbuXlsxBtn) {
-        downloadGimokbuXlsxBtn.addEventListener('click', () => handleExcelDownload(downloadGimokbuXlsxBtn, ExcelExport.downloadGimokbu));
-    }
-    if (downloadGimokjiXlsxBtn) {
-        downloadGimokjiXlsxBtn.addEventListener('click', () => handleExcelDownload(downloadGimokjiXlsxBtn, ExcelExport.downloadGimokji));
+    const downloadAllXlsxBtn = document.getElementById('download-all-xlsx-btn');
+    if (downloadAllXlsxBtn) {
+        downloadAllXlsxBtn.addEventListener('click', () => handleExcelDownload(downloadAllXlsxBtn, ExcelExport.downloadCombined));
     }
 
     const closeModal = () => {
