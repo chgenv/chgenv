@@ -14,6 +14,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const tempInput = document.getElementById('temp');
     const pressureInput = document.getElementById('pressure');
     const oxygenInput = document.getElementById('oxygen');
+    const standardOxygenInput = document.getElementById('standard-oxygen');
     const pipeLengthInput = document.getElementById('pipe-length');
     const volumeInput = document.getElementById('volume');
     const rawValueInput = document.getElementById('raw-value');
@@ -37,9 +38,24 @@ document.addEventListener('DOMContentLoaded', () => {
     const authMsg = document.getElementById('auth-msg');
 
     // Admin configuration
-    const adminAccessCode = '9999'; // Default admin login code
-    // Retrieve unified code from localStorage, default to '1234'
+    // 2026-09-01: 기본 비밀번호(1234)/관리자코드(9999)는 실사용 코드로 원복함.
+    // 대신 (1) 관리자 전용 마스터키, (2) 직원별 개별 비밀번호 기능을 추가해서
+    // 관리자 화면에서 직접 로테이션할 수 있게 함 — localStorage에 저장된 값은
+    // 소스코드에는 없고 그 기기(브라우저)에만 남으므로, 실제로 값을 바꾸고 나면
+    // 소스를 봐도 새 값은 보이지 않음. 단, 관리자가 한 번도 안 바꾼 기기는
+    // 아래 기본값이 그대로 적용되니 배포 후 꼭 관리자 화면에서 값을 바꿔둘 것.
+    const adminAccessCode = '9999'; // 관리자 로그인 코드
+    // 기본(최초) 비밀번호 — 직원별 개별 비밀번호가 없는 경우 사용
     let currentUnifiedCode = localStorage.getItem('unifiedEmployeeCode') || '1234';
+    // 마스터키 — 이름 선택과 무관하게 항상 로그인 허용 (관리자용 비상키)
+    let currentMasterKey = localStorage.getItem('masterKey') || '116390';
+    // 직원별 개별 비밀번호 { 이름: 코드 }
+    let employeeCodes = {};
+    try {
+        employeeCodes = JSON.parse(localStorage.getItem('employeeCodes') || '{}');
+    } catch (e) {
+        employeeCodes = {};
+    }
 
     authBtn.addEventListener('click', () => {
         const name = authNameSelect.value;
@@ -68,8 +84,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 showAuthError('관리자 암호가 틀렸습니다.');
             }
         } else {
-            // Employee Login
-            if (code === currentUnifiedCode) {
+            // Employee Login: 마스터키 → 개별 비밀번호(있으면) → 기본 비밀번호 순으로 확인
+            const employeeCode = employeeCodes[name];
+            const isValid = (code === currentMasterKey) ||
+                (employeeCode ? code === employeeCode : code === currentUnifiedCode);
+
+            if (isValid) {
                 // Employee Login Success
                 loginScreen.style.transition = 'opacity 0.4s ease';
                 loginScreen.style.opacity = '0';
@@ -91,18 +111,74 @@ document.addEventListener('DOMContentLoaded', () => {
         setTimeout(() => authCodeInput.classList.remove('highlight-pulse'), 800);
     }
 
+    function showAdminMsg(msg) {
+        const adminMsg = document.getElementById('admin-msg');
+        adminMsg.innerText = msg;
+        adminMsg.classList.remove('hidden');
+        setTimeout(() => adminMsg.classList.add('hidden'), 3000);
+    }
+
     // Admin Panel Logic
+    // ① 기본(최초) 비밀번호 변경
     document.getElementById('change-code-btn').addEventListener('click', () => {
         const newCode = document.getElementById('new-auth-code').value;
         if (!newCode || newCode.length < 4) {
-            alert('새로운 보안코드를 4자리 이상 입력해주세요.');
+            alert('새로운 비밀번호를 4자리 이상 입력해주세요.');
             return;
         }
-        
+
         localStorage.setItem('unifiedEmployeeCode', newCode);
         currentUnifiedCode = newCode;
-        alert('모든 직원의 통일 보안코드가 성공적으로 변경되었습니다!');
+        showAdminMsg('기본(최초) 비밀번호가 변경되었습니다!');
         document.getElementById('new-auth-code').value = '';
+    });
+
+    // ② 마스터키 변경
+    document.getElementById('change-master-key-btn').addEventListener('click', () => {
+        const newKey = document.getElementById('new-master-key').value;
+        if (!newKey || newKey.length < 4) {
+            alert('새로운 마스터키를 4자리 이상 입력해주세요.');
+            return;
+        }
+
+        localStorage.setItem('masterKey', newKey);
+        currentMasterKey = newKey;
+        showAdminMsg('마스터키가 변경되었습니다!');
+        document.getElementById('new-master-key').value = '';
+    });
+
+    // ③ 직원별 개별 비밀번호 변경 / 초기화
+    function saveEmployeeCodes() {
+        localStorage.setItem('employeeCodes', JSON.stringify(employeeCodes));
+    }
+
+    document.getElementById('change-employee-code-btn').addEventListener('click', () => {
+        const name = document.getElementById('employee-code-name-select').value;
+        const newCode = document.getElementById('new-employee-code').value;
+        if (!name) {
+            alert('비밀번호를 변경할 직원을 선택해주세요.');
+            return;
+        }
+        if (!newCode || newCode.length < 4) {
+            alert('새로운 비밀번호를 4자리 이상 입력해주세요.');
+            return;
+        }
+
+        employeeCodes[name] = newCode;
+        saveEmployeeCodes();
+        showAdminMsg(`${name}님의 개별 비밀번호가 변경되었습니다!`);
+        document.getElementById('new-employee-code').value = '';
+    });
+
+    document.getElementById('reset-employee-code-btn').addEventListener('click', () => {
+        const name = document.getElementById('employee-code-name-select').value;
+        if (!name) {
+            alert('초기화할 직원을 선택해주세요.');
+            return;
+        }
+        delete employeeCodes[name];
+        saveEmployeeCodes();
+        showAdminMsg(`${name}님은 이제 기본 비밀번호를 사용합니다.`);
     });
 
     document.getElementById('back-to-login-btn').addEventListener('click', () => {
@@ -242,12 +318,16 @@ document.addEventListener('DOMContentLoaded', () => {
         /**
          * 대기오염공정시험기준 기반 엑셀 계산식 실제 연동 (Mock Data 제거)
          */
-        
+
         // 가. 표준상태 부피 (Vs) 계산
-        const deadVolume = pipeLength * 0.0001; 
+        // [2026-09-01 수정] 표준상태는 대기오염공정시험기준상 0℃(273.15K), 760mmHg 기준임.
+        // 기존 코드는 293.15(20℃)를 분자로 사용해 Vs가 약 7.3% 과대산출되고 있었음
+        // (먼지 항목은 C=원시값/Vs 이므로, 결과적으로 먼지 농도가 실제보다 낮게 계산되는 오류).
+        // 아래 상세(정밀) 계산 로직(273 기준)과도 일치하도록 273.15로 통일함.
+        const deadVolume = pipeLength * 0.0001;
         const adjustedVolume = volume - deadVolume;
-        
-        const vs = adjustedVolume * (293.15 / (273.15 + temp)) * (pressure / 760);
+
+        const vs = adjustedVolume * (273.15 / (273.15 + temp)) * (pressure / 760);
         
         // 나. 원시 농도 산출
         let rawConcentration = rawValue;
@@ -260,12 +340,17 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         
         // 다. 보정 가스농도 (C) 계산 (산소 보정 적용)
-        const standardOxygen = 10; 
+        // [2026-09-01 수정] 표준산소농도는 시설 종류마다 법정 기준이 다름(예: 소각 12%,
+        // 보일러 4~6% 등 대기환경보전법 시행규칙 별표 기준) — 기존에는 "10"으로
+        // 고정되어 있어 시설 종류에 따라 잘못된 보정계수가 적용될 수 있었음.
+        // 화면에서 해당 시설의 법정 표준산소농도를 직접 입력받도록 변경.
+        // 입력하지 않으면(공란) 임의로 추정하지 않고 보정을 생략함(원시농도 그대로 사용).
+        const standardOxygenRaw = parseFloat(standardOxygenInput.value);
         let c = rawConcentration;
-        
-        // 대기 산소 농도(약 20.9%)와 다를 때만 보정 진행
-        if (oxygen < 20.9) {
-            c = rawConcentration * ((21 - standardOxygen) / (21 - oxygen));
+
+        // 대기 산소 농도(약 20.9%)와 다르고, 표준산소농도가 입력된 경우에만 보정 진행
+        if (oxygen < 20.9 && !isNaN(standardOxygenRaw)) {
+            c = rawConcentration * ((21 - standardOxygenRaw) / (21 - oxygen));
         }
 
         // 3. Update UI
