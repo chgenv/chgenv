@@ -28,6 +28,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const closeModalBtn = document.getElementById('close-modal');
     const closeModalBottomBtn = document.getElementById('close-modal-bottom');
 
+    // 마지막으로 생성한 성적서 데이터 (엑셀 다운로드 버튼에서 재사용)
+    let lastReportCtx = null;
+
     // 0. Authentication Logic
     const loginScreen = document.getElementById('login-screen');
     const mainApp = document.getElementById('main-app');
@@ -457,12 +460,72 @@ document.addEventListener('DOMContentLoaded', () => {
             document.getElementById('record1-container').innerHTML = Templates.record1(advData);
             document.getElementById('record2-container').innerHTML = Templates.record2(advData);
             document.getElementById('record3-container').innerHTML = Templates.record3(advData);
+
+            // 실제 원본 엑셀(.xlsx) 다운로드용 데이터 구성
+            // (업체/배출구별 실제 정보는 DB에서, 측정값/계산결과는 위 계산 로직에서 가져옴)
+            const selectedCompany = workplaceSelect.value;
+            const companyInfo = (typeof DB !== 'undefined' && DB.companies[selectedCompany]) || null;
+            const ventDetail = companyInfo && companyInfo.ventDetails
+                ? companyInfo.ventDetails.find(v => String(v.ventNum) === String(ventSelect.value))
+                : null;
+            const standardOxygenVal = parseFloat(standardOxygenInput.value);
+
+            lastReportCtx = {
+                companyInfo, ventDetail,
+                workplaceName, ventNum: ventSelect.value || '-', dateString,
+                sampler: advData.sampler, item: advData.item, unit: advData.unit, C: advData.C,
+                temp: advData.temp, humidity: advData.humidity, press: advData.press,
+                windDir: advData.windDir, v: advData.v, Xw: advData.Xw,
+                oxygen: advData.oxygen, standardOxygen: isNaN(standardOxygenVal) ? null : standardOxygenVal,
+                Q: advData.Q, I: advData.I, time: advData.time, vm: advData.vm,
+            };
+
+            // 측정항목이 '먼지'일 때만 먼지시료채취기록지(1m이내기록지) 엑셀 버튼 노출
+            const gimokjiBtn = document.getElementById('download-gimokji-xlsx-btn');
+            if (gimokjiBtn) {
+                if (advData.item === '먼지') gimokjiBtn.classList.remove('hidden');
+                else gimokjiBtn.classList.add('hidden');
+            }
         }
 
         // 모달 열기
         modal.classList.remove('hidden');
         setTimeout(() => modal.classList.add('show'), 10);
     });
+
+    // 엑셀(.xlsx) 다운로드 버튼들 — 실제 원본 서식 그대로 값만 채워서 다운로드
+    async function handleExcelDownload(btn, fn) {
+        if (!lastReportCtx) {
+            alert('먼저 "법정 성적서 발행하기" 버튼으로 성적서를 생성해주세요.');
+            return;
+        }
+        const originalHtml = btn.innerHTML;
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> 생성 중...';
+        try {
+            await fn(lastReportCtx);
+        } catch (err) {
+            console.error(err);
+            alert('엑셀 파일 생성 중 오류가 발생했습니다: ' + err.message);
+        } finally {
+            btn.disabled = false;
+            btn.innerHTML = originalHtml;
+        }
+    }
+
+    const downloadReportXlsxBtn = document.getElementById('download-report-xlsx-btn');
+    const downloadGimokbuXlsxBtn = document.getElementById('download-gimokbu-xlsx-btn');
+    const downloadGimokjiXlsxBtn = document.getElementById('download-gimokji-xlsx-btn');
+
+    if (downloadReportXlsxBtn) {
+        downloadReportXlsxBtn.addEventListener('click', () => handleExcelDownload(downloadReportXlsxBtn, ExcelExport.downloadReport));
+    }
+    if (downloadGimokbuXlsxBtn) {
+        downloadGimokbuXlsxBtn.addEventListener('click', () => handleExcelDownload(downloadGimokbuXlsxBtn, ExcelExport.downloadGimokbu));
+    }
+    if (downloadGimokjiXlsxBtn) {
+        downloadGimokjiXlsxBtn.addEventListener('click', () => handleExcelDownload(downloadGimokjiXlsxBtn, ExcelExport.downloadGimokji));
+    }
 
     const closeModal = () => {
         modal.classList.remove('show');
@@ -474,6 +537,114 @@ document.addEventListener('DOMContentLoaded', () => {
     modal.addEventListener('click', (e) => {
         if (e.target === modal) closeModal();
     });
+
+    // 5. 거래명세표 발행
+    const statementModal = document.getElementById('statement-modal');
+    const openStatementBtn = document.getElementById('open-statement-btn');
+    const closeStatementModalBtn = document.getElementById('close-statement-modal');
+    const closeStatementModalBottomBtn = document.getElementById('close-statement-modal-bottom');
+    const stmtCompanyInput = document.getElementById('stmt-company');
+    const stmtItemsTable = document.getElementById('stmt-items-table');
+    const downloadStatementXlsxBtn = document.getElementById('download-statement-xlsx-btn');
+
+    function recalcStatement() {
+        let totalSupply = 0, totalTax = 0;
+        stmtItemsTable.querySelectorAll('tbody tr, tr').forEach(row => {
+            const qtyInput = row.querySelector('.stmt-qty');
+            const priceInput = row.querySelector('.stmt-price');
+            if (!qtyInput || !priceInput) return;
+            const qty = parseFloat(qtyInput.value) || 0;
+            const price = parseFloat(priceInput.value) || 0;
+            const supply = Math.round(qty * price);
+            const tax = Math.round(supply * 0.1);
+            row.querySelector('.stmt-supply').innerText = supply.toLocaleString();
+            row.querySelector('.stmt-tax').innerText = tax.toLocaleString();
+            totalSupply += supply;
+            totalTax += tax;
+        });
+        document.getElementById('stmt-total-supply').innerText = totalSupply.toLocaleString();
+        document.getElementById('stmt-total-tax').innerText = totalTax.toLocaleString();
+        document.getElementById('stmt-grand-total').innerText = (totalSupply + totalTax).toLocaleString();
+    }
+
+    if (openStatementBtn) {
+        openStatementBtn.addEventListener('click', () => {
+            const selectedCompany = workplaceSelect.value;
+            if (!selectedCompany) {
+                alert('먼저 사업장을 선택해주세요.');
+                return;
+            }
+            const workplaceName = workplaceSelect.options[workplaceSelect.selectedIndex].text;
+            stmtCompanyInput.value = workplaceName;
+
+            // 배출구별 시설명을 품목명 기본값으로 미리 채워줌 (수정 가능)
+            const companyInfo = (typeof DB !== 'undefined' && DB.companies[selectedCompany]) || null;
+            const facilityNames = (companyInfo && companyInfo.ventDetails)
+                ? [...new Set(companyInfo.ventDetails.map(v => v.facilityType).filter(Boolean))]
+                : [];
+            const nameInputs = stmtItemsTable.querySelectorAll('.stmt-name');
+            nameInputs.forEach((input, idx) => {
+                if (!input.value && facilityNames[idx]) input.value = facilityNames[idx];
+            });
+            if (nameInputs.length > 2 && !nameInputs[2].value) nameInputs[2].value = '출장수수료';
+
+            recalcStatement();
+            statementModal.classList.remove('hidden');
+            setTimeout(() => statementModal.classList.add('show'), 10);
+        });
+    }
+
+    stmtItemsTable.querySelectorAll('.stmt-qty, .stmt-price').forEach(input => {
+        input.addEventListener('input', recalcStatement);
+    });
+
+    const closeStatementModal = () => {
+        statementModal.classList.remove('show');
+        setTimeout(() => statementModal.classList.add('hidden'), 300);
+    };
+    if (closeStatementModalBtn) closeStatementModalBtn.addEventListener('click', closeStatementModal);
+    if (closeStatementModalBottomBtn) closeStatementModalBottomBtn.addEventListener('click', closeStatementModal);
+    statementModal.addEventListener('click', (e) => {
+        if (e.target === statementModal) closeStatementModal();
+    });
+
+    if (downloadStatementXlsxBtn) {
+        downloadStatementXlsxBtn.addEventListener('click', async () => {
+            const selectedCompany = workplaceSelect.value;
+            const companyInfo = (typeof DB !== 'undefined' && DB.companies[selectedCompany]) || null;
+            const workplaceName = stmtCompanyInput.value;
+            const items = [];
+            const rows = stmtItemsTable.querySelectorAll('tr');
+            rows.forEach(row => {
+                const nameInput = row.querySelector('.stmt-name');
+                const qtyInput = row.querySelector('.stmt-qty');
+                const priceInput = row.querySelector('.stmt-price');
+                if (!nameInput || !qtyInput || !priceInput) return;
+                if (!nameInput.value) return;
+                items.push({
+                    name: nameInput.value,
+                    qty: parseFloat(qtyInput.value) || 0,
+                    price: parseFloat(priceInput.value) || 0,
+                });
+            });
+            if (items.length === 0) {
+                alert('품목을 1개 이상 입력해주세요.');
+                return;
+            }
+            const originalHtml = downloadStatementXlsxBtn.innerHTML;
+            downloadStatementXlsxBtn.disabled = true;
+            downloadStatementXlsxBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> 생성 중...';
+            try {
+                await ExcelExport.downloadStatement({ companyInfo, workplaceName, items });
+            } catch (err) {
+                console.error(err);
+                alert('엑셀 파일 생성 중 오류가 발생했습니다: ' + err.message);
+            } finally {
+                downloadStatementXlsxBtn.disabled = false;
+                downloadStatementXlsxBtn.innerHTML = originalHtml;
+            }
+        });
+    }
 });
 
 // Global functions for UI controls

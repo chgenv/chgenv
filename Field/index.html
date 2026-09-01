@@ -320,6 +320,9 @@
                 <button id="report-btn" class="btn success-btn mt-4">
                     <i class="fa-solid fa-file-signature"></i> 법정 성적서 발행하기
                 </button>
+                <button id="open-statement-btn" class="btn secondary-btn mt-4">
+                    <i class="fa-solid fa-file-invoice-dollar"></i> 거래명세표 발행하기
+                </button>
             </section>
         </main>
     </div>
@@ -416,15 +419,85 @@
                 </div>
 
             </div>
-            <div class="modal-footer">
+            <div class="modal-footer" style="flex-wrap: wrap; gap: 8px;">
+                <p style="width:100%; font-size:0.8rem; color:#64748b; margin:0 0 4px;">
+                    * 위 미리보기는 화면 확인용 근사치입니다. 실제 제출/보관용 문서는 아래 "엑셀 다운로드" 버튼으로 받은
+                    .xlsx 파일(실제 사용 중인 원본 서식 그대로)을 사용해주세요.
+                </p>
                 <button class="btn secondary-btn" id="close-modal-bottom">닫기</button>
+                <button class="btn print-btn" id="download-report-xlsx-btn"><i class="fa-solid fa-file-excel"></i> 결과보고서 엑셀</button>
+                <button class="btn print-btn" id="download-gimokbu-xlsx-btn"><i class="fa-solid fa-file-excel"></i> 대기측정기록부 엑셀</button>
+                <button class="btn print-btn hidden" id="download-gimokji-xlsx-btn"><i class="fa-solid fa-file-excel"></i> 먼지시료채취기록지 엑셀</button>
                 <button class="btn print-btn" onclick="window.print()"><i class="fa-solid fa-print"></i> 인쇄 / PDF 저장</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 거래명세표 발행 모달 -->
+    <div class="modal-overlay hidden" id="statement-modal">
+        <div class="modal-content" style="max-width: 720px;">
+            <div class="modal-header">
+                <h2>거래명세표 발행</h2>
+                <button class="close-btn" id="close-statement-modal">&times;</button>
+            </div>
+            <div class="modal-body" style="padding: 20px;">
+                <p style="font-size:0.85rem; color:#64748b; margin-bottom:15px;">
+                    공급받는자(업체) 정보는 사업장 선택에 따라 자동으로 채워집니다. 품목/수량/단가를 입력하면
+                    공급가액(수량×단가)과 세액(10%), 합계금액이 자동으로 계산되어 실제 거래명세표 서식에 채워집니다.
+                </p>
+                <div class="data-item" style="margin-bottom: 15px;">
+                    <label>공급받는자 (사업장)</label>
+                    <input type="text" id="stmt-company" disabled>
+                </div>
+                <table class="excel-table" id="stmt-items-table">
+                    <tr>
+                        <td style="font-weight:bold;">품목</td>
+                        <td style="font-weight:bold;">수량</td>
+                        <td style="font-weight:bold;">단가(원)</td>
+                        <td style="font-weight:bold;">공급가액(원)</td>
+                        <td style="font-weight:bold;">세액(원)</td>
+                    </tr>
+                    <tr>
+                        <td><input type="text" class="stmt-name" placeholder="예: 도장시설"></td>
+                        <td><input type="number" class="stmt-qty" value="1" style="width:70px;"></td>
+                        <td><input type="number" class="stmt-price" step="1000" style="width:100px;"></td>
+                        <td class="stmt-supply">0</td>
+                        <td class="stmt-tax">0</td>
+                    </tr>
+                    <tr>
+                        <td><input type="text" class="stmt-name" placeholder="예: 분리시설"></td>
+                        <td><input type="number" class="stmt-qty" value="1" style="width:70px;"></td>
+                        <td><input type="number" class="stmt-price" step="1000" style="width:100px;"></td>
+                        <td class="stmt-supply">0</td>
+                        <td class="stmt-tax">0</td>
+                    </tr>
+                    <tr>
+                        <td><input type="text" class="stmt-name" placeholder="예: 출장수수료"></td>
+                        <td><input type="number" class="stmt-qty" value="1" style="width:70px;"></td>
+                        <td><input type="number" class="stmt-price" step="1000" style="width:100px;"></td>
+                        <td class="stmt-supply">0</td>
+                        <td class="stmt-tax">0</td>
+                    </tr>
+                    <tr>
+                        <td colspan="3" style="text-align:right; font-weight:bold;">합계</td>
+                        <td id="stmt-total-supply" style="font-weight:bold;">0</td>
+                        <td id="stmt-total-tax" style="font-weight:bold;">0</td>
+                    </tr>
+                </table>
+                <p style="text-align:right; margin-top:10px; font-weight:bold;">합계금액(공급가액+세액): <span id="stmt-grand-total">0</span> 원</p>
+            </div>
+            <div class="modal-footer">
+                <button class="btn secondary-btn" id="close-statement-modal-bottom">닫기</button>
+                <button class="btn print-btn" id="download-statement-xlsx-btn"><i class="fa-solid fa-file-excel"></i> 거래명세표 엑셀 다운로드</button>
             </div>
         </div>
     </div>
 
     <script src="db.js"></script>
     <script src="templates.js"></script>
+    <!-- 실제 원본 엑셀 서식(.xlsx) 그대로 채워서 다운로드하기 위한 라이브러리 -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js"></script>
+    <script src="excel_export.js"></script>
     <script src="app.js"></script>
 </body>
 </html>
